@@ -22,7 +22,7 @@ class StatisticsCommand extends TranslationCommand
      */
     protected $percentages;
 
-    public function getPercentage($number)
+    protected function getPercentage($number)
     {
         $percentage = $number / $this->statistics->countEntries() * 100;
         if ($percentage != 0 && $percentage < 1) {
@@ -35,7 +35,7 @@ class StatisticsCommand extends TranslationCommand
     /**
      * Calculates the percentages from the statistics
      */
-    public function calculatePercentages()
+    protected function calculatePercentages()
     {
         $this->percentages = array();
         $this->percentages['untranslated'] = $this->getPercentage($this->statistics->countUntranslatedEntries());

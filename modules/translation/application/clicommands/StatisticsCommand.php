@@ -26,7 +26,7 @@ class StatisticsCommand extends TranslationCommand
     {
         $percentage = $number / $this->statistics->countEntries() * 100;
         if ($percentage != 0 && $percentage < 1) {
-            $percentage = 1;
+            return 1;
         }
 
         return round($percentage);

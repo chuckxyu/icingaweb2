@@ -97,7 +97,7 @@ class StatisticsCommand extends TranslationCommand
                 . $pathParts[count($pathParts) - 1]
                 . ' ('
                 . $this->statistics->countEntries()
-                . ' entries)'
+                . ' messages)'
                 . PHP_EOL . PHP_EOL;
 
             echo "\t"

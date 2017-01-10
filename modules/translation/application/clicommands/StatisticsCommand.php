@@ -8,23 +8,17 @@ use Icinga\Module\Translation\Cli\TranslationCommand;
 
 class StatisticsCommand extends TranslationCommand
 {
-    /**
-     * The statistics to be displayed
-     *
-     * @var Statistics
-     */
-    protected $statistics;
 
-    /**
-     * The percentages of the statistics to be displayed
-     *
-     * @var array
-     */
-    protected $percentages;
+    protected $colors = array(
+        'untranslated' => 'blue',
+        'translated' => 'red',
+        'fuzzy' => 'green',
+        'faulty' => 'purple'
+    );
 
-    protected function getPercentage($number)
+    protected function getPercentage($number, $maxCount)
     {
-        $percentage = $number / $this->statistics->countEntries() * 100;
+        $percentage = $number / $maxCount * 100;
         if ($percentage != 0 && $percentage < 1) {
             return 1;
         }
@@ -34,24 +28,33 @@ class StatisticsCommand extends TranslationCommand
 
     /**
      * Calculates the percentages from the statistics
+     * 
+     * @param Statistics $statistics
+     * 
+     * @return array
      */
-    protected function calculatePercentages()
+    protected function calculatePercentages($statistics)
     {
-        $this->percentages = array();
-        $this->percentages['untranslated'] = $this->getPercentage($this->statistics->countUntranslatedEntries());
-        $this->percentages['translated'] = $this->getPercentage($this->statistics->countTranslatedEntries());
-        $this->percentages['fuzzy'] = $this->getPercentage($this->statistics->countFuzzyEntries());
-        $this->percentages['faulty'] = $this->getPercentage($this->statistics->countFaultyEntries());
+        $maxCount = $statistics->countEntries();
+        
+        $percentages = array();
+        $percentages['untranslated'] = $this->getPercentage($statistics->countUntranslatedEntries(), $maxCount);
+        $percentages['translated'] = $this->getPercentage($statistics->countTranslatedEntries(), $maxCount);
+        $percentages['fuzzy'] = $this->getPercentage($statistics->countFuzzyEntries(), $maxCount);
+        $percentages['faulty'] = $this->getPercentage($statistics->countFaultyEntries(), $maxCount);
 
-        $percentageSum = array_sum($this->percentages);
+        $percentageSum = array_sum($percentages);
         if ($percentageSum != 100) {
             $difference = 100 - $percentageSum;
 
-            $toAdapt = array_search(max($this->percentages), $this->percentages);
-            $this->percentages[$toAdapt] += $difference;
+            $toAdapt = array_search(max($percentages), $percentages);
+            $percentages[$toAdapt] += $difference;
         }
+        
+        return $percentages;
     }
 
+   
     public function graphsAction()
     {
         if (!$this->params->getAllStandalone()) {
@@ -60,35 +63,20 @@ class StatisticsCommand extends TranslationCommand
         }
 
         foreach ($this->params->getAllStandalone() as $path) {
-            $this->statistics = new Statistics($path);
+            $statistics = new Statistics($path);
 
-            $this->calculatePercentages();
+            $percentages = $this->calculatePercentages($statistics);
 
             echo PHP_EOL;
 
-            foreach ($this->percentages as $key => $value) {
-                $color = '';
-                switch ($key) {
-                    case 'untranslated':
-                        $color = 'blue';
-                        break;
-                    case 'translated':
-                        $color = 'red';
-                        break;
-                    case 'fuzzy':
-                        $color = 'green';
-                        break;
-                    case 'faulty':
-                        $color = 'purple';
-                        break;
-                }
+            foreach ($percentages as $key => $value) {
                 for ($i = 0; $i < $value; $i++) {
-                    echo $this->screen->colorize('█', $color);
+                    echo $this->screen->colorize('█', $this->colors[$key]);
                 }
             }
 
 
-            $pathParts = explode('/', $this->statistics->getPath());
+            $pathParts = explode('/', $statistics->getPath());
 
             echo PHP_EOL
                 . '⤷ '
@@ -96,34 +84,34 @@ class StatisticsCommand extends TranslationCommand
                 . ': '
                 . $pathParts[count($pathParts) - 1]
                 . ' ('
-                . $this->statistics->countEntries()
+                . $statistics->countEntries()
                 . ' messages)'
                 . PHP_EOL . PHP_EOL;
 
             echo "\t"
                 . $this->screen->colorize('Untranslated', 'blue')
                 . ': '
-                . $this->percentages['untranslated']
+                . $percentages['untranslated']
                 . '% ('
-                . $this->statistics->countUntranslatedEntries()
+                . $statistics->countUntranslatedEntries()
                 . ' messages)'
                 . PHP_EOL;
 
             echo "\t"
                 . $this->screen->colorize('Translated', 'red')
                 . ': '
-                . $this->percentages['translated']
+                . $percentages['translated']
                 . '% ('
-                . $this->statistics->countTranslatedEntries()
+                . $statistics->countTranslatedEntries()
                 . ' messages)'
                 . PHP_EOL;
 
             echo "\t"
                 . $this->screen->colorize('Fuzzy', 'green')
                 . ': '
-                . $this->percentages['fuzzy']
+                . $percentages['fuzzy']
                 . '% ('
-                . $this->statistics->countFuzzyEntries()
+                . $statistics->countFuzzyEntries()
                 . ' messages)'
                 . PHP_EOL;
 

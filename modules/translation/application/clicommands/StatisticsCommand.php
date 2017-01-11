@@ -28,15 +28,15 @@ class StatisticsCommand extends TranslationCommand
 
     /**
      * Calculates the percentages from the statistics
-     * 
+     *
      * @param Statistics $statistics
-     * 
+     *
      * @return array
      */
     protected function calculatePercentages($statistics)
     {
         $maxCount = $statistics->countEntries();
-        
+
         $percentages = array();
         $percentages['untranslated'] = $this->getPercentage($statistics->countUntranslatedEntries(), $maxCount);
         $percentages['translated'] = $this->getPercentage($statistics->countTranslatedEntries(), $maxCount);
@@ -50,11 +50,10 @@ class StatisticsCommand extends TranslationCommand
             $toAdapt = array_search(max($percentages), $percentages);
             $percentages[$toAdapt] += $difference;
         }
-        
+
         return $percentages;
     }
 
-   
     public function graphsAction()
     {
         if (!$this->params->getAllStandalone()) {
@@ -70,59 +69,44 @@ class StatisticsCommand extends TranslationCommand
             echo PHP_EOL;
 
             foreach ($percentages as $key => $value) {
-                for ($i = 0; $i < $value; $i++) {
-                    echo $this->screen->colorize('█', $this->colors[$key]);
-                }
+                echo $this->screen->colorize(str_repeat('█', $value), $this->colors[$key]);
             }
+                $pathParts = explode('/', $statistics->getPath());
 
+                printf(
+                    PHP_EOL . '⤷ %s: %s (%s messages)' . PHP_EOL . PHP_EOL,
+                    $pathParts[count($pathParts) - 3],
+                    $pathParts[count($pathParts) - 1],
+                    $statistics->countEntries()
+                );
 
-            $pathParts = explode('/', $statistics->getPath());
+                printf(
+                    "\t %s: %d%% (%d messages)" . PHP_EOL,
+                    $this->screen->colorize('Untranslated', 'blue'),
+                    $percentages['untranslated'],
+                    $statistics->countUntranslatedEntries()
+                );
 
-            echo PHP_EOL
-                . '⤷ '
-                . $pathParts[count($pathParts) - 3]
-                . ': '
-                . $pathParts[count($pathParts) - 1]
-                . ' ('
-                . $statistics->countEntries()
-                . ' messages)'
-                . PHP_EOL . PHP_EOL;
+                printf(
+                    "\t %s: %d%% (%d messages)" . PHP_EOL,
+                    $this->screen->colorize('Translated', 'red'),
+                    $percentages['translated'],
+                    $statistics->countTranslatedEntries()
+                );
 
-            echo "\t"
-                . $this->screen->colorize('Untranslated', 'blue')
-                . ': '
-                . $percentages['untranslated']
-                . '% ('
-                . $statistics->countUntranslatedEntries()
-                . ' messages)'
-                . PHP_EOL;
+                printf(
+                    "\t %s: %d%% (%d messages)" . PHP_EOL,
+                    $this->screen->colorize('Fuzzy', 'green'),
+                    $percentages['fuzzy'],
+                    $statistics->countFuzzyEntries()
+                );
 
-            echo "\t"
-                . $this->screen->colorize('Translated', 'red')
-                . ': '
-                . $percentages['translated']
-                . '% ('
-                . $statistics->countTranslatedEntries()
-                . ' messages)'
-                . PHP_EOL;
-
-            echo "\t"
-                . $this->screen->colorize('Fuzzy', 'green')
-                . ': '
-                . $percentages['fuzzy']
-                . '% ('
-                . $statistics->countFuzzyEntries()
-                . ' messages)'
-                . PHP_EOL;
-
-            echo "\t"
-                . $this->screen->colorize('Faulty', 'purple')
-                . ': '
-                . $this->percentages['faulty']
-                . '% ('
-                . $this->statistics->countFaultyEntries()
-                . ' messages)'
-                . PHP_EOL . PHP_EOL;
+                printf(
+                    "\t %s: %d%% (%d messages)" . PHP_EOL . PHP_EOL,
+                    $this->screen->colorize('Faulty', 'purple'),
+                    $percentages['faulty'],
+                    $statistics->countFaultyEntries()
+                );
         }
     }
 }

@@ -5,6 +5,7 @@ namespace Icinga\Module\Translation\Clicommands;
 
 use Icinga\Module\Translation\Statistics\Statistics;
 use Icinga\Module\Translation\Cli\TranslationCommand;
+use Icinga\Util\Translator;
 
 class StatisticsCommand extends TranslationCommand
 {
@@ -54,14 +55,50 @@ class StatisticsCommand extends TranslationCommand
         return $percentages;
     }
 
-    public function graphsAction()
+    protected function recursiveGlob($pattern, $flags = 0) {
+        $files = glob($pattern, $flags);
+        foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
+            $files = array_merge($files, $this->recursiveGlob($dir.'/'.basename($pattern), $flags));
+        }
+        return $files;
+    }
+
+    protected function getPaths()
     {
-        if (!$this->params->getAllStandalone()) {
-            //todo display manual
-            return;
+        $paths = array();
+        $input = $this->params->getAllStandalone();
+        $this->app->getModuleManager()->loadEnabledModules();
+        $valueGiven = true;
+
+        $allLocales = Translator::getAvailableLocaleCodes();
+        if(($key = array_search('en_US', $allLocales)) !== false) {
+            unset($allLocales[$key]);
         }
 
-        foreach ($this->params->getAllStandalone() as $path) {
+        if (!$input) {
+            $input = $allLocales;
+            $valueGiven = false;
+        }
+
+        foreach ($input as $locale) {
+            if (!$valueGiven || in_array($locale, $allLocales)) {
+                $paths[] = $this->app->getLocaleDir() . '/' . $locale . '/LC_MESSAGES/icinga.po';
+                foreach ($this->app->getModuleManager()->listEnabledModules() as $module) {
+                    if (is_dir($this->app->getModuleManager()->getModule($module)->getLocaleDir())) {
+                        $paths[] = $this->app->getModuleManager()->getModule($module)->getLocaleDir()
+                            . '/' . $locale . '/LC_MESSAGES/' . $module . '.po';
+                    }
+                }
+            } else {
+                echo "\n" . $locale . " is an invalid locale code. \n";
+            }
+        }
+        return $paths;
+    }
+
+    public function graphsAction()
+    {
+        foreach ($this->getPaths() as $path) {
             $statistics = new Statistics($path);
 
             $percentages = $this->calculatePercentages($statistics);

@@ -3,6 +3,7 @@
 
 namespace Icinga\Module\Translation\Clicommands;
 
+use Icinga\Application\Logger;
 use Icinga\Module\Translation\Statistics\Statistics;
 use Icinga\Module\Translation\Cli\TranslationCommand;
 use Icinga\Util\Translator;
@@ -19,9 +20,13 @@ class StatisticsCommand extends TranslationCommand
 
     protected function getPercentage($number, $maxCount)
     {
-        $percentage = $number / $maxCount * 100;
-        if ($percentage != 0 && $percentage < 1) {
-            return 1;
+        if($maxCount == 0) {
+            return 0;
+        } else {
+            $percentage = $number / $maxCount * 100;
+            if ($percentage != 0 && $percentage < 1) {
+                return 1;
+            }
         }
 
         return round($percentage);
@@ -55,14 +60,6 @@ class StatisticsCommand extends TranslationCommand
         return $percentages;
     }
 
-    protected function recursiveGlob($pattern, $flags = 0) {
-        $files = glob($pattern, $flags);
-        foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
-            $files = array_merge($files, $this->recursiveGlob($dir.'/'.basename($pattern), $flags));
-        }
-        return $files;
-    }
-
     protected function getPaths()
     {
         $paths = array();
@@ -75,24 +72,41 @@ class StatisticsCommand extends TranslationCommand
             unset($allLocales[$key]);
         }
 
-        if (!$input) {
+        if (! $input) {
             $input = $allLocales;
             $valueGiven = false;
         }
 
         foreach ($input as $locale) {
-            if (!$valueGiven || in_array($locale, $allLocales)) {
-                $paths[] = $this->app->getLocaleDir() . '/' . $locale . '/LC_MESSAGES/icinga.po';
+            if (! $valueGiven || in_array($locale, $allLocales)) {
+                $paths[] = implode(
+                    DIRECTORY_SEPARATOR,
+                    array($this->app->getLocaleDir(), $locale, 'LC_MESSAGES', 'icinga.po')
+                );
                 foreach ($this->app->getModuleManager()->listEnabledModules() as $module) {
-                    if (is_dir($this->app->getModuleManager()->getModule($module)->getLocaleDir())) {
-                        $paths[] = $this->app->getModuleManager()->getModule($module)->getLocaleDir()
-                            . '/' . $locale . '/LC_MESSAGES/' . $module . '.po';
+                    $localeDir = $this->app->getModuleManager()->getModule($module)->getLocaleDir();
+                    if (is_dir($localeDir)) {
+                        $paths[] = implode(
+                            DIRECTORY_SEPARATOR,
+                            array($localeDir, $locale, 'LC_MESSAGES', $module . '.po')
+                        );
                     }
                 }
             } else {
-                echo "\n" . $locale . " is an invalid locale code. \n";
+                if (! preg_match('@[a-z]{2}_[A-Z]{2}@', $locale)) {
+                    Logger::error(
+                        sprintf($this->translate('Locale code \'%s\' is not valid. Expected format is: ll_CC'), $locale)
+                    );
+                    exit(1);
+                } else {
+                    Logger::warning(
+                        sprintf($this->translate('\'%s\' is an unknown locale code.'), $locale)
+                    );
+                    exit(1);
+                }
             }
         }
+
         return $paths;
     }
 

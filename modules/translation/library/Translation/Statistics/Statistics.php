@@ -3,6 +3,9 @@
 
 namespace Icinga\Module\Translation\Statistics;
 
+use Exception;
+use Icinga\Exception\IcingaException;
+
 /**
  * Class Statistics
  *
@@ -11,7 +14,7 @@ namespace Icinga\Module\Translation\Statistics;
 class Statistics
 {
     /**
-     * The path from which to create the statistics
+     * The statistics' path
      *
      * @var string
      */
@@ -22,45 +25,44 @@ class Statistics
      *
      * @var int
      */
-    protected $entryCount = 0;
+    protected $entryCount;
 
     /**
      * The amount of untranslated entries
      *
      * @var int
      */
-    protected $untranslatedEntryCount = 0;
+    protected $untranslatedEntryCount;
 
     /**
      * The amount of translated entries
      *
      * @var int
      */
-    protected $translatedEntryCount = 0;
+    protected $translatedEntryCount;
 
     /**
      * The amount of fuzzy entries
      *
      * @var int
      */
-    protected $fuzzyEntryCount = 0;
+    protected $fuzzyEntryCount;
 
     /**
      * The amount of faulty entries
      *
      * @var int
      */
-    protected $faultyEntryCount = 0;
+    protected $faultyEntryCount;
 
     /**
      * Create a new Statistics object
      *
-     * @param   string  $path
+     * @param   string  $path   The path from which to create the statistics
      */
     public function __construct($path)
     {
         $this->path = $path;
-        $this->sortNumbers();
     }
 
     /**
@@ -98,9 +100,12 @@ class Statistics
      */
     protected function sortNumbers()
     {
-        $info = explode('msgfmt: found ', $this->getStatistics());
-        $relevant = $info[count($info) - 1];
-        preg_match_all('/\d+ [a-z]+/', $relevant , $results);
+        try {
+            list($_, $relevant) = explode('msgfmt: found ', $this->getStatistics(), 2);
+            preg_match_all('/\d+ [a-z]+/', $relevant, $results);
+        } catch (Exception $_) {
+            throw new IcingaException('Cannot parse the output given by msgfmt for path %s', $this->path);
+        }
 
         foreach ($results[0] as $value) {
 
@@ -128,62 +133,67 @@ class Statistics
     }
 
     /**
-     * Return path
-     *
-     * @return string
-     */
-    public function getPath()
-    {
-        return $this->path;
-    }
-
-    /**
-     * Count all Entries
+     * Count all Entries of these statistics
      *
      * @return int
      */
     public function countEntries()
     {
+        if ($this->entryCount === null) {
+            $this->sortNumbers();
+        }
         return $this->entryCount;
     }
 
     /**
-     * Count all untranslated entries
+     * Count all untranslated entries of these statistics
      *
      * @return int
      */
     public function countUntranslatedEntries()
     {
+        if ($this->untranslatedEntryCount === null) {
+            $this->sortNumbers();
+        }
         return $this->untranslatedEntryCount;
     }
 
     /**
-     * Count all translated entries
+     * Count all translated entries of these statistics
      *
      * @return int
      */
     public function countTranslatedEntries()
     {
+        if ($this->translatedEntryCount === null) {
+            $this->sortNumbers();
+        }
         return $this->translatedEntryCount;
     }
 
     /**
-     * Count all fuzzy entries
+     * Count all fuzzy entries of these statistics
      *
      * @return int
      */
     public function countFuzzyEntries()
     {
+        if ($this->fuzzyEntryCount === null) {
+            $this->sortNumbers();
+        }
         return $this->fuzzyEntryCount;
     }
 
     /**
-     * Count all faulty entries
+     * Count all faulty entries of these statistics
      *
      * @return int
      */
     public function countFaultyEntries()
     {
+        if ($this->faultyEntryCount === null) {
+            $this->sortNumbers();
+        }
         return $this->faultyEntryCount;
     }
 }

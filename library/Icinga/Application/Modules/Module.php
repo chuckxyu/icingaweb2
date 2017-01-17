@@ -292,16 +292,6 @@ class Module
     }
 
     /**
-     * Get this module's locale path
-     *
-     * @return string
-     */
-    public function getLocaleDir()
-    {
-        return $this->localedir;
-    }
-
-    /**
      * Return this module's dashboard
      *
      * @return  Navigation
@@ -790,6 +780,16 @@ class Module
     public function getLibDir()
     {
         return $this->libdir;
+    }
+
+    /**
+     * Get this module's locale path
+     *
+     * @return string
+     */
+    public function getLocaleDir()
+    {
+        return $this->localedir;
     }
 
     /**

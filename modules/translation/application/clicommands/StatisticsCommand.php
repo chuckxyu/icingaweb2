@@ -4,81 +4,111 @@
 namespace Icinga\Module\Translation\Clicommands;
 
 use Icinga\Application\Logger;
+use Icinga\Exception\IcingaException;
 use Icinga\Module\Translation\Statistics\Statistics;
 use Icinga\Module\Translation\Cli\TranslationCommand;
 use Icinga\Util\Translator;
 
 class StatisticsCommand extends TranslationCommand
 {
-
+    /**
+     * Colors for translation status indicators
+     */
     protected $colors = array(
-        'untranslated' => 'blue',
-        'translated' => 'red',
-        'fuzzy' => 'green',
-        'faulty' => 'purple'
+        'untranslated'  => 'blue',
+        'translated'    => 'red',
+        'fuzzy'         => 'green',
+        'faulty'        => 'purple'
     );
 
-    protected function getPercentage($number, $maxCount)
+    /**
+     * Calculates the percentages from the statistics
+     *
+     * @param   array   $numbers    The collected data
+     *
+     * @return  array
+     */
+    protected function calculatePercentages($numbers)
     {
-        if($maxCount == 0) {
-            return 0;
-        } else {
-            $percentage = $number / $maxCount * 100;
-            if ($percentage != 0 && $percentage < 1) {
-                return 1;
-            }
+        $percentages = array();
+        $percentages['untranslated'] = $this->roundPercentage($numbers['untranslatedCount'], $numbers['messageCount']);
+        $percentages['translated'] = $this->roundPercentage($numbers['translatedCount'], $numbers['messageCount']);
+        $percentages['fuzzy'] = $this->roundPercentage($numbers['fuzzyCount'], $numbers['messageCount']);
+        $percentages['faulty'] = $this->roundPercentage($numbers['faultyCount'], $numbers['messageCount']);
+
+        $percentageSum = array_sum($percentages);
+        if ($percentageSum != 100) {
+            $toAdapt = array_search(max($percentages), $percentages);
+            $percentages[$toAdapt] += 100 - $percentageSum;
+        }
+
+        return $percentages;
+    }
+
+    /**
+     * Rounds the percentage so that it always is a full percent
+     *
+     * @param   int   $number     The percentage value
+     * @param   int   $maxCount   The fundamental value
+     *
+     * @return  int
+     */
+    protected function roundPercentage($number, $maxCount)
+    {
+        $percentage = $number / $maxCount * 100;
+        if ($percentage !== 0 && $percentage < 1) {
+            return 1;
         }
 
         return round($percentage);
     }
 
     /**
-     * Calculates the percentages from the statistics
+     * Gets the absolute amount of the different message types
      *
-     * @param Statistics $statistics
+     * @param   $statistics   Statistics    The collected data
      *
-     * @return array
+     * @return  array
      */
-    protected function calculatePercentages($statistics)
+    protected function getMessageCounts($statistics)
     {
-        $maxCount = $statistics->countEntries();
+        $numbers = array();
+        $numbers['messageCount'] =  $statistics->countEntries();
+        $numbers['untranslatedCount'] = $statistics->countUntranslatedEntries();
+        $numbers['translatedCount'] = $statistics->countTranslatedEntries();
+        $numbers['fuzzyCount'] = $statistics->countFuzzyEntries();
+        $numbers['faultyCount'] = $statistics->countFaultyEntries();
 
-        $percentages = array();
-        $percentages['untranslated'] = $this->getPercentage($statistics->countUntranslatedEntries(), $maxCount);
-        $percentages['translated'] = $this->getPercentage($statistics->countTranslatedEntries(), $maxCount);
-        $percentages['fuzzy'] = $this->getPercentage($statistics->countFuzzyEntries(), $maxCount);
-        $percentages['faulty'] = $this->getPercentage($statistics->countFaultyEntries(), $maxCount);
-
-        $percentageSum = array_sum($percentages);
-        if ($percentageSum != 100) {
-            $difference = 100 - $percentageSum;
-
-            $toAdapt = array_search(max($percentages), $percentages);
-            $percentages[$toAdapt] += $difference;
-        }
-
-        return $percentages;
+        return $numbers;
     }
 
-    protected function getPaths()
+    /**
+     * Get all paths for the input language
+     *
+     * When there is no input it will get paths for all available languages.
+     *
+     * @param   string  $language   The language to display the statistics for
+     *
+     * @return  array
+     */
+    protected function getLanguagePaths($language)
     {
-        $paths = array();
-        $input = $this->params->getAllStandalone();
         $this->app->getModuleManager()->loadEnabledModules();
-        $valueGiven = true;
 
         $allLocales = Translator::getAvailableLocaleCodes();
-        if(($key = array_search('en_US', $allLocales)) !== false) {
+        if (($key = array_search(Translator::DEFAULT_LOCALE, $allLocales)) !== false) {
             unset($allLocales[$key]);
         }
 
-        if (! $input) {
-            $input = $allLocales;
-            $valueGiven = false;
+        if (! $language) {
+            $locales = $allLocales;
+        } else {
+            $locales = array($language);
         }
 
-        foreach ($input as $locale) {
-            if (! $valueGiven || in_array($locale, $allLocales)) {
+        $paths = array();
+        foreach ($locales as $locale) {
+            if (! $language || in_array($locale, $allLocales)) {
                 $paths[] = implode(
                     DIRECTORY_SEPARATOR,
                     array($this->app->getLocaleDir(), $locale, 'LC_MESSAGES', 'icinga.po')
@@ -110,54 +140,152 @@ class StatisticsCommand extends TranslationCommand
         return $paths;
     }
 
-    public function graphsAction()
+    /**
+     * Get all paths for the input module
+     *
+     * @param   string    $module   The module to display the statistics for
+     *
+     * @return  array
+     */
+    protected function getModulePaths($module)
     {
-        foreach ($this->getPaths() as $path) {
-            $statistics = new Statistics($path);
+        $localeDir = $this->app->getModuleManager()->loadEnabledModules()->getModule($module)->getLocaleDir();
+        $locales = array_diff(scandir($localeDir), array('.', '..'));
 
-            $percentages = $this->calculatePercentages($statistics);
+        $paths = array();
+        foreach ($locales as $locale) {
+            $paths[] = implode(DIRECTORY_SEPARATOR, array($localeDir, $locale, 'LC_MESSAGES', $module . '.po'));
+        }
 
-            echo PHP_EOL;
+        return $paths;
+    }
 
-            foreach ($percentages as $key => $value) {
-                echo $this->screen->colorize(str_repeat('█', $value), $this->colors[$key]);
+    /**
+     * Generates and prints the output of a given statistics object
+     *
+     * @param   array   $data   All information about a .po file
+     */
+    public function printOutput($data)
+    {
+        $percentages = $this->calculatePercentages($data);
+
+        foreach ($percentages as $key => $value) {
+            echo $this->screen->colorize(str_repeat('█', $value), $this->colors[$key]);
+        }
+
+        if (array_key_exists('moduleName', $data)) {
+            printf(
+                PHP_EOL . '↳ %s: %s (%s messages)' . PHP_EOL . PHP_EOL,
+                $data['locale'],
+                $data['moduleName'],
+                $data['messageCount']
+            );
+        } else {
+            printf(
+                PHP_EOL . '↳ %s (%s messages)' . PHP_EOL . PHP_EOL,
+                $data['locale'],
+                $data['messageCount']
+            );
+        }
+
+        printf(
+            "\t %s: %d%% (%d messages)" . PHP_EOL,
+            $this->screen->colorize('Untranslated', 'blue'),
+            $percentages['untranslated'],
+            $data['untranslatedCount']
+        );
+
+        printf(
+            "\t %s: %d%% (%d messages)" . PHP_EOL,
+            $this->screen->colorize('Translated', 'red'),
+            $percentages['translated'],
+            $data['translatedCount']
+        );
+
+        printf(
+            "\t %s: %d%% (%d messages)" . PHP_EOL,
+            $this->screen->colorize('Fuzzy', 'green'),
+            $percentages['fuzzy'],
+            $data['fuzzyCount']
+        );
+
+        printf(
+            "\t %s: %d%% (%d messages)" . PHP_EOL . PHP_EOL,
+            $this->screen->colorize('Faulty', 'purple'),
+            $percentages['faulty'],
+            $data['faultyCount']
+        );
+
+        echo PHP_EOL;
+    }
+
+    /**
+     * Generates statistics
+     *
+     * This shows translation statistics for a given language and all modules or a given module and all languages.
+     * Alternatively without any options it will give you the overall state of all languages.
+     *
+     * USAGE:
+     *
+     *   icingacli translation statistics show --<option> <module/locale>
+     *
+     * EXAMPLES:
+     *
+     *   icingacli translation statistics show --module monitoring
+     *   icingacli translation statistics show --language de_DE
+     */
+    public function showAction()
+    {
+        $module = $this->params->get('module');
+        $language = $this->params->get('language');
+
+        if ($module && $language) {
+            Logger::error($this->translate('Options --module and --language cannot be used at the same time.'));
+            exit(1);
+        } elseif ($module) {
+            if ($module === true) {
+                Logger::warning($this->translate('No module given.'));
+                exit(1);
             }
-                $pathParts = explode('/', $statistics->getPath());
+            $paths = $this->getModulePaths($module);
+        } else {
+            if ($language === true) {
+                Logger::warning($this->translate('No language given.'));
+                exit(1);
+            }
+            $paths = $this->getLanguagePaths($language);
+        }
 
-                printf(
-                    PHP_EOL . '⤷ %s: %s (%s messages)' . PHP_EOL . PHP_EOL,
-                    $pathParts[count($pathParts) - 3],
-                    $pathParts[count($pathParts) - 1],
-                    $statistics->countEntries()
-                );
+        $dataPackages = array();
+        foreach ($paths as $path) {
+            try {
+                $data = $this->getMessageCounts(new Statistics($path));
+            } catch (IcingaException $e) {
+                // TODO: error handling
+                Logger::error($e);
+                continue;
+            }
 
-                printf(
-                    "\t %s: %d%% (%d messages)" . PHP_EOL,
-                    $this->screen->colorize('Untranslated', 'blue'),
-                    $percentages['untranslated'],
-                    $statistics->countUntranslatedEntries()
-                );
+            $pathParts = explode('/', $path);
+            $locale = $pathParts[count($pathParts) - 3];
+            $data['locale'] = $locale;
 
-                printf(
-                    "\t %s: %d%% (%d messages)" . PHP_EOL,
-                    $this->screen->colorize('Translated', 'red'),
-                    $percentages['translated'],
-                    $statistics->countTranslatedEntries()
-                );
+            if ($language) {
+                $data['moduleName'] = $pathParts[count($pathParts) - 1];
+                $dataPackages[] = $data;
+            } elseif (isset($dataPackages[$locale])) {
+                foreach ($dataPackages[$locale] as $key => $value) {
+                    if ($key !== 'locale') {
+                        $dataPackages[$locale][$key] += $data[$key];
+                    }
+                }
+            } else {
+                $dataPackages[$locale] = $data;
+            }
+        }
 
-                printf(
-                    "\t %s: %d%% (%d messages)" . PHP_EOL,
-                    $this->screen->colorize('Fuzzy', 'green'),
-                    $percentages['fuzzy'],
-                    $statistics->countFuzzyEntries()
-                );
-
-                printf(
-                    "\t %s: %d%% (%d messages)" . PHP_EOL . PHP_EOL,
-                    $this->screen->colorize('Faulty', 'purple'),
-                    $percentages['faulty'],
-                    $statistics->countFaultyEntries()
-                );
+        foreach ($dataPackages as $data) {
+            $this->printOutput($data);
         }
     }
 }

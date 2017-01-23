@@ -66,11 +66,11 @@ class StatisticsCommand extends TranslationCommand
     /**
      * Gets the absolute amount of the different message types
      *
-     * @param   $statistics   Statistics    The collected data
+     * @param   Statistics  $statistics     The collected data
      *
      * @return  array
      */
-    protected function getMessageCounts($statistics)
+    protected function getMessageCounts(Statistics $statistics)
     {
         $numbers = array();
         $numbers['messageCount'] =  $statistics->countEntries();

@@ -15,10 +15,10 @@ class StatisticsCommand extends TranslationCommand
      * Colors for translation status indicators
      */
     protected $colors = array(
-        'untranslated'  => 'blue',
-        'translated'    => 'red',
-        'fuzzy'         => 'green',
-        'faulty'        => 'purple'
+        'untranslated'  => 'purple',
+        'translated'    => 'green',
+        'fuzzy'         => 'blue',
+        'faulty'        => 'red'
     );
 
     /**
@@ -31,10 +31,10 @@ class StatisticsCommand extends TranslationCommand
     protected function calculatePercentages($numbers)
     {
         $percentages = array();
-        $percentages['untranslated'] = $this->roundPercentage($numbers['untranslatedCount'], $numbers['messageCount']);
         $percentages['translated'] = $this->roundPercentage($numbers['translatedCount'], $numbers['messageCount']);
         $percentages['fuzzy'] = $this->roundPercentage($numbers['fuzzyCount'], $numbers['messageCount']);
         $percentages['faulty'] = $this->roundPercentage($numbers['faultyCount'], $numbers['messageCount']);
+        $percentages['untranslated'] = $this->roundPercentage($numbers['untranslatedCount'], $numbers['messageCount']);
 
         $percentageSum = array_sum($percentages);
         if ($percentageSum != 100) {
@@ -190,30 +190,30 @@ class StatisticsCommand extends TranslationCommand
 
         printf(
             "\t %s: %d%% (%d messages)" . PHP_EOL,
-            $this->screen->colorize('Untranslated', 'blue'),
-            $percentages['untranslated'],
-            $data['untranslatedCount']
-        );
-
-        printf(
-            "\t %s: %d%% (%d messages)" . PHP_EOL,
-            $this->screen->colorize('Translated', 'red'),
+            $this->screen->colorize('Translated', $this->colors['translated']),
             $percentages['translated'],
             $data['translatedCount']
         );
 
         printf(
             "\t %s: %d%% (%d messages)" . PHP_EOL,
-            $this->screen->colorize('Fuzzy', 'green'),
+            $this->screen->colorize('Fuzzy', $this->colors['fuzzy']),
             $percentages['fuzzy'],
             $data['fuzzyCount']
         );
 
         printf(
-            "\t %s: %d%% (%d messages)" . PHP_EOL . PHP_EOL,
-            $this->screen->colorize('Faulty', 'purple'),
+            "\t %s: %d%% (%d messages)" . PHP_EOL,
+            $this->screen->colorize('Faulty', $this->colors['faulty']),
             $percentages['faulty'],
             $data['faultyCount']
+        );
+
+        printf(
+            "\t %s: %d%% (%d messages)" . PHP_EOL . PHP_EOL,
+            $this->screen->colorize('Untranslated', $this->colors['untranslated']),
+            $percentages['untranslated'],
+            $data['untranslatedCount']
         );
 
         echo PHP_EOL;

@@ -97,18 +97,19 @@ class Statistics
 
     /**
      * Parse the gathered statistics from msgfmt of the gettext tools
+     *
+     * @throws  IcingaException     In case it's not possible to parse msgfmt's output
      */
     protected function sortNumbers()
     {
-        try {
-            list($_, $relevant) = explode('msgfmt: found ', $this->getStatistics(), 2);
-            preg_match_all('/\d+ [a-z]+/', $relevant, $results);
-        } catch (Exception $_) {
+        $info = explode('msgfmt: found ', $this->getStatistics());
+        $relevant = end($info);
+        if ($relevant === false) {
             throw new IcingaException('Cannot parse the output given by msgfmt for path %s', $this->path);
         }
 
+        preg_match_all('/\d+ [a-z]+/', $relevant , $results);
         foreach ($results[0] as $value) {
-
             $chunks = explode(' ', $value);
             switch ($chunks[1]) {
                 case 'fatal':

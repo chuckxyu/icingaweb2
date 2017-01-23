@@ -258,6 +258,10 @@ class StatisticsCommand extends TranslationCommand
 
         $dataPackages = array();
         foreach ($paths as $path) {
+            if (! file_exists($path)) {
+                continue;
+            }
+
             try {
                 $data = $this->getMessageCounts(new Statistics($path));
             } catch (IcingaException $e) {
